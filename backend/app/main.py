@@ -1,10 +1,20 @@
 from fastapi import FastAPI
 
+from app.api.users import router as users_router
+from app.api.transactions import router as transactions_router
+from app.api.auth import router as auth_router
+
+
 app = FastAPI(
     title="SecureFlow API",
     description="Cloud-native financial security platform",
     version="0.1.0",
 )
+
+
+app.include_router(users_router)
+app.include_router(transactions_router)
+app.include_router(auth_router)
 
 
 @app.get("/")
