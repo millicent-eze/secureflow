@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -27,14 +29,12 @@ def create_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Only customers can initiate transactions through this endpoint.
     if current_user.role != "customer":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only customers can initiate transactions.",
         )
 
-    # The authenticated user determines transaction ownership.
     if not current_user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -47,8 +47,8 @@ def create_transaction(
         )
     )
 
-    if average_transaction is None:
-        average_transaction = transaction_data.amount
+    if average_transaction is not None:
+        average_transaction = Decimal(str(average_transaction))
 
     risk_result = assess_transaction_risk(
         amount=transaction_data.amount,
@@ -94,14 +94,11 @@ def list_transactions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Customers can view only their own transactions.
     if current_user.role == "customer":
         statement = select(Transaction).where(
             Transaction.user_id == current_user.id
         )
     else:
-        # Staff access will be restricted through dedicated,
-        # role-specific investigation endpoints.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Use an authorized staff investigation workflow.",

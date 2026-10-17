@@ -59,7 +59,13 @@ function clearAuthError() {
 async function apiRequest(path, options = {}) {
     const headers = new Headers(options.headers || {});
 
-    if (options.body && !(options.body instanceof FormData)) {
+    // Preserve an explicitly supplied Content-Type.
+    // Default to JSON only when no Content-Type was supplied.
+    if (
+        options.body &&
+        !(options.body instanceof FormData) &&
+        !headers.has("Content-Type")
+    ) {
         headers.set("Content-Type", "application/json");
     }
 
@@ -126,12 +132,14 @@ function setAuthMode(mode) {
 
     elements.fullNameField.hidden = !registering;
     elements.fullName.required = registering;
+
     elements.password.autocomplete = registering
         ? "new-password"
         : "current-password";
 
     document.querySelectorAll("[data-auth-mode]").forEach(button => {
         const active = button.dataset.authMode === state.authMode;
+
         button.classList.toggle("active", active);
         button.setAttribute("aria-pressed", String(active));
     });
@@ -142,6 +150,7 @@ function setAuthMode(mode) {
 function updateAuthUI() {
     if (state.user) {
         const displayName = state.user.full_name || state.user.email;
+
         elements.authButton.textContent = "Sign out";
         elements.authButton.title = `Signed in as ${displayName}`;
     } else {
@@ -150,6 +159,7 @@ function updateAuthUI() {
     }
 
     elements.submitTransaction.disabled = !state.user;
+
     elements.submitTransaction.title = state.user
         ? ""
         : "Sign in with a test account before submitting a transaction.";
@@ -195,6 +205,7 @@ function statusClass(decision) {
     if (decision === "ALLOW") return "status-allow";
     if (decision === "REVIEW") return "status-review";
     if (decision === "BLOCK") return "status-block";
+
     return "status-unknown";
 }
 
@@ -209,6 +220,7 @@ function createEmptyState(title, description) {
     paragraph.textContent = description;
 
     wrapper.append(heading, paragraph);
+
     return wrapper;
 }
 
@@ -222,6 +234,7 @@ function renderTransactionList(container, transactions) {
                 "Submit a simulated transaction to see it here."
             )
         );
+
         return;
     }
 
@@ -234,7 +247,8 @@ function renderTransactionList(container, transactions) {
 
         const beneficiary = document.createElement("div");
         beneficiary.className = "transaction-beneficiary";
-        beneficiary.textContent = transaction.beneficiary || "Test beneficiary";
+        beneficiary.textContent =
+            transaction.beneficiary || "Test beneficiary";
 
         const meta = document.createElement("div");
         meta.className = "transaction-meta";
@@ -247,18 +261,21 @@ function renderTransactionList(container, transactions) {
 
         const amount = document.createElement("div");
         amount.className = "transaction-amount";
+
         amount.textContent = formatAmount(
             transaction.amount,
             transaction.currency || "NGN"
         );
 
         const decision = normalizeDecision(transaction.status);
+
         const badge = document.createElement("span");
         badge.className = `status-badge ${statusClass(decision)}`;
         badge.textContent = decision;
 
         side.append(amount, badge);
         row.append(main, side);
+
         container.appendChild(row);
     });
 }
@@ -287,31 +304,32 @@ function updateStatistics(transactions) {
 async function loadTransactions() {
     if (!state.user) {
         state.transactions = [];
+
         updateStatistics([]);
-        renderTransactionList(
-            elements.recentTransactions,
-            []
-        );
-        renderTransactionList(
-            elements.allTransactions,
-            []
-        );
+
+        renderTransactionList(elements.recentTransactions, []);
+        renderTransactionList(elements.allTransactions, []);
+
         return;
     }
 
     const transactions = await apiRequest("/transactions");
 
     if (!Array.isArray(transactions)) {
-        throw new Error("The server returned an unexpected transaction response.");
+        throw new Error(
+            "The server returned an unexpected transaction response."
+        );
     }
 
     state.transactions = transactions;
 
     updateStatistics(transactions);
+
     renderTransactionList(
         elements.recentTransactions,
         transactions.slice(0, 5)
     );
+
     renderTransactionList(
         elements.allTransactions,
         transactions
@@ -320,8 +338,11 @@ async function loadTransactions() {
 
 async function loadCurrentUser() {
     const user = await apiRequest("/auth/me");
+
     state.user = user;
+
     updateAuthUI();
+
     await loadTransactions();
 }
 
@@ -333,15 +354,8 @@ function clearSession() {
     updateAuthUI();
     updateStatistics([]);
 
-    renderTransactionList(
-        elements.recentTransactions,
-        []
-    );
-
-    renderTransactionList(
-        elements.allTransactions,
-        []
-    );
+    renderTransactionList(elements.recentTransactions, []);
+    renderTransactionList(elements.allTransactions, []);
 }
 
 async function handleAuthentication(event) {
@@ -369,6 +383,7 @@ async function handleAuthentication(event) {
         }
 
         const formData = new URLSearchParams();
+
         formData.set("username", email);
         formData.set("password", password);
 
@@ -381,7 +396,9 @@ async function handleAuthentication(event) {
         });
 
         if (!tokenResponse?.access_token) {
-            throw new Error("The server did not return an access token.");
+            throw new Error(
+                "The server did not return an access token."
+            );
         }
 
         state.token = tokenResponse.access_token;
@@ -398,20 +415,26 @@ async function handleAuthentication(event) {
     } catch (error) {
         state.token = null;
         state.user = null;
+
         updateAuthUI();
 
         let message = error.message || "Authentication failed.";
 
         if (error.status === 401) {
-            message = "We couldn't sign you in. Check your email and password.";
+            message =
+                "We couldn't sign you in. Check your email and password.";
         } else if (error.status === 409) {
-            message = "An account with this email already exists. Please sign in.";
+            message =
+                "An account with this email already exists. Please sign in.";
         } else if (error.status === 422) {
-            message = "Some information is invalid. Check the form and try again.";
+            message =
+                "Some information is invalid. Check the form and try again.";
         } else if (error.status === 403) {
-            message = "This account cannot access the requested resource.";
+            message =
+                "This account cannot access the requested resource.";
         } else if (!error.status) {
-            message = "Unable to reach SecureFlow. Check that the frontend and backend are running.";
+            message =
+                "Unable to reach SecureFlow. Check that the frontend and backend are running.";
         }
 
         showAuthError(message);
@@ -429,9 +452,12 @@ async function handleTransactionSubmission(event) {
     }
 
     const formData = new FormData(elements.transactionForm);
+
     const amount = Number(formData.get("amount"));
     const currency = String(formData.get("currency") || "NGN");
-    const beneficiary = String(formData.get("beneficiary") || "").trim();
+    const beneficiary = String(
+        formData.get("beneficiary") || ""
+    ).trim();
 
     if (!Number.isFinite(amount) || amount <= 0) {
         showMessage(
@@ -439,6 +465,7 @@ async function handleTransactionSubmission(event) {
             "Enter a valid transaction amount greater than zero.",
             "error"
         );
+
         return;
     }
 
@@ -448,6 +475,7 @@ async function handleTransactionSubmission(event) {
             "Enter a test beneficiary.",
             "error"
         );
+
         return;
     }
 
@@ -477,32 +505,49 @@ async function handleTransactionSubmission(event) {
         );
 
         elements.transactionForm.reset();
+
         await loadTransactions();
     } catch (error) {
-        let message = error.message || "Transaction submission failed.";
+        let message =
+            error.message || "Transaction submission failed.";
 
         if (error.status === 401) {
             clearSession();
-            message = "Your session is no longer valid. Please sign in again.";
+
+            message =
+                "Your session is no longer valid. Please sign in again.";
+
             openAuthDialog("login");
         } else if (error.status === 403) {
-            message = "Your account is not permitted to submit this transaction.";
+            message =
+                "Your account is not permitted to submit this transaction.";
         } else if (error.status === 422) {
-            message = "The transaction details were rejected. Check the amount, currency, and beneficiary.";
+            message =
+                "The transaction details were rejected. Check the amount, currency, and beneficiary.";
         } else if (!error.status) {
-            message = "Unable to reach SecureFlow. Check that the application is running.";
+            message =
+                "Unable to reach SecureFlow. Check that the application is running.";
         }
 
-        showMessage(elements.transactionResult, message, "error");
+        showMessage(
+            elements.transactionResult,
+            message,
+            "error"
+        );
     } finally {
-        elements.submitTransaction.innerHTML = 'Assess transaction <span>→</span>';
+        elements.submitTransaction.innerHTML =
+            'Assess transaction <span>→</span>';
+
         updateAuthUI();
     }
 }
 
 function showView(viewName) {
     const validViews = ["overview", "transactions", "feedback"];
-    const view = validViews.includes(viewName) ? viewName : "overview";
+
+    const view = validViews.includes(viewName)
+        ? viewName
+        : "overview";
 
     document.querySelectorAll(".view").forEach(section => {
         section.hidden = section.id !== `${view}-view`;
@@ -510,6 +555,7 @@ function showView(viewName) {
 
     document.querySelectorAll("[data-view]").forEach(link => {
         const active = link.dataset.view === view;
+
         link.classList.toggle("active", active);
 
         if (active) {
@@ -572,27 +618,34 @@ function attachEventListeners() {
         });
     });
 
-    elements.authForm.addEventListener("submit", handleAuthentication);
+    elements.authForm.addEventListener(
+        "submit",
+        handleAuthentication
+    );
+
     elements.transactionForm.addEventListener(
         "submit",
         handleTransactionSubmission
     );
 
-    elements.refreshTransactions.addEventListener("click", async () => {
-        elements.refreshTransactions.disabled = true;
+    elements.refreshTransactions.addEventListener(
+        "click",
+        async () => {
+            elements.refreshTransactions.disabled = true;
 
-        try {
-            await loadTransactions();
-        } catch (error) {
-            showMessage(
-                elements.allTransactions,
-                error.message || "Could not refresh transactions.",
-                "error"
-            );
-        } finally {
-            elements.refreshTransactions.disabled = false;
+            try {
+                await loadTransactions();
+            } catch (error) {
+                showMessage(
+                    elements.allTransactions,
+                    error.message || "Could not refresh transactions.",
+                    "error"
+                );
+            } finally {
+                elements.refreshTransactions.disabled = false;
+            }
         }
-    });
+    );
 
     elements.feedbackForm.addEventListener(
         "submit",
@@ -602,8 +655,11 @@ function attachEventListeners() {
     document.querySelectorAll("[data-view]").forEach(link => {
         link.addEventListener("click", event => {
             event.preventDefault();
+
             const view = link.dataset.view;
+
             showView(view);
+
             history.replaceState(null, "", `#${view}`);
         });
     });
@@ -611,6 +667,7 @@ function attachEventListeners() {
 
 function initialize() {
     attachEventListeners();
+
     updateAuthUI();
     updateStatistics([]);
 

@@ -1,9 +1,15 @@
 from decimal import Decimal
 
 
+# Demo thresholds for SecureFlow.
+# These are configurable starting points, not real banking rules.
+REVIEW_AMOUNT_THRESHOLD = Decimal("150000")
+BLOCK_AMOUNT_THRESHOLD = Decimal("500000")
+
+
 def assess_transaction_risk(
     amount: Decimal,
-    average_transaction: Decimal,
+    average_transaction: Decimal | None = None,
     is_new_device: bool = False,
     is_new_beneficiary: bool = False,
     unusual_location: bool = False,
@@ -13,8 +19,21 @@ def assess_transaction_risk(
     score = 0
     reasons = []
 
-    # Rule 1: Detect unusually large transactions.
-    if average_transaction > 0:
+    # Rule 1: Check the transaction amount against demo thresholds.
+    if amount >= BLOCK_AMOUNT_THRESHOLD:
+        score += 60
+        reasons.append(
+            "Transaction amount meets the high-risk blocking threshold."
+        )
+    elif amount >= REVIEW_AMOUNT_THRESHOLD:
+        score += 30
+        reasons.append(
+            "Transaction amount meets the manual review threshold."
+        )
+
+    # Rule 2: Compare the amount with the user's previous transaction average.
+    # Skip this rule when the user has no transaction history.
+    if average_transaction is not None and average_transaction > 0:
         ratio = amount / average_transaction
 
         if ratio >= 10:
@@ -28,36 +47,33 @@ def assess_transaction_risk(
                 "Transaction amount is at least 5 times the user's average."
             )
 
-    # Rule 2: Detect a new device.
+    # Rule 3: Add points for other suspicious signals.
     if is_new_device:
         score += 20
         reasons.append("Transaction originated from a new device.")
 
-    # Rule 3: Detect a new beneficiary.
     if is_new_beneficiary:
         score += 20
         reasons.append("Transaction is being sent to a new beneficiary.")
 
-    # Rule 4: Detect unusual locations.
     if unusual_location:
         score += 15
         reasons.append("Transaction originated from an unusual location.")
 
-    # Rule 5: Detect repeated failed login attempts.
     if failed_login_attempts >= 3:
         score += 15
         reasons.append("Multiple failed login attempts were detected.")
 
-    # Rule 6: Detect unusual transaction times.
     if unusual_time:
         score += 10
         reasons.append("Transaction occurred at an unusual time.")
 
-    # Prevent scores from exceeding 100.
+    # Cap the score at 100.
     score = min(score, 100)
 
-    # Determine the risk decision.
-    if score >= 60:
+    # Make the final decision.
+    # A transaction meeting the blocking amount threshold is always blocked.
+    if amount >= BLOCK_AMOUNT_THRESHOLD or score >= 60:
         decision = "BLOCK"
         risk_level = "HIGH"
     elif score >= 30:
@@ -67,7 +83,6 @@ def assess_transaction_risk(
         decision = "ALLOW"
         risk_level = "LOW"
 
-    # Return an explainable risk assessment.
     return {
         "risk_score": score,
         "decision": decision,
