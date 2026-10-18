@@ -33,6 +33,9 @@ jobs:
 
       - name: Run backend tests
         working-directory: backend
+        env:
+          DATABASE_URL: "sqlite:///./secureflow_ci.db"
+          JWT_SECRET_KEY: "test-only-secret-key-for-ci-not-for-production"
         run: python -m pytest tests/ -v
 
   dependency-audit:
