@@ -8,3 +8,4 @@ pwdlib[argon2]
 email-validator
 alembic
 python-multipart
+pytest
