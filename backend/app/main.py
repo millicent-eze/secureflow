@@ -9,8 +9,13 @@ app = FastAPI(
     title="SecureFlow API",
     description="Cloud-native financial security platform",
     version="0.1.0",
+    openapi_url="/openapi.json",
+    docs_url="/docs",
 )
 
+app.swagger_ui_parameters = {
+    "url": "/api/openapi.json",
+}
 
 app.include_router(users_router)
 app.include_router(transactions_router)
