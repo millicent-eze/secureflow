@@ -10,9 +10,9 @@ RUN groupadd --system appgroup \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade pip \
+RUN pip install --no-cache-dir --upgrade pip==26.3 \
     && pip install --no-cache-dir -r requirements.txt
-
+    
 COPY alembic.ini .
 COPY alembic ./alembic
 COPY app ./app
