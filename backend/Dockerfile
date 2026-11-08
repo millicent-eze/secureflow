@@ -50,6 +50,12 @@ RUN rm -rf \
     /usr/local/bin/pip \
     /usr/local/bin/pip3 \
     /usr/local/bin/pip3.12
+
+    # Apply available Debian security and package updates
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+    
 # Copy application files
 COPY alembic.ini .
 COPY alembic ./alembic
