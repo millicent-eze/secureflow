@@ -1,5 +1,8 @@
 FROM nginx:1.28-alpine
 
+# Apply available Alpine security updates
+RUN apk update && apk upgrade --no-cache
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY index.html /usr/share/nginx/html/index.html
 COPY css /usr/share/nginx/html/css
